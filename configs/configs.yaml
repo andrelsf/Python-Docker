@@ -1,0 +1,44 @@
+default:
+  domain: '.mylab.com.br'
+  py_docker_dir: '/etc/pydocker/'
+  py_docker_config: '/etc/pydocker/configs/'
+  py_docker_functions: '/etc/pydocker/functions/'
+
+networks:
+  - name: 'netapps'
+    subnet: '172.254.0.0/16'
+    gateway: '172.254.0.254'
+    driver: 'bridge'
+
+apps:
+  - name: 'proxy_nginx'
+    network: 'netapps'
+    ip: '172.254.0.253'
+    aliases: ["proxy-apps"]
+    image: 'proxy_apps:v1.0'
+    ports: [80]
+    port_bindings: '{80:80}'
+    dockerfile_path: '/etc/pydocker/configs/proxy_nginx/'
+    dockerfile: 'Dockerfile'
+    tag: 'proxy_apps:v1.0'
+    template: "server {\n\tlisten  80;\n\tserver_name %s%s;\n\tlocation / {\n\t\tproxy_pass  http://%s%s/;\n\t}\n}\n"
+  - name: 'app1'
+    network: 'netapps'
+    ip: '172.254.0.1'
+    aliases: ["app1", "app1.mylab.com.br"]
+    image: 'app1:v1.0'
+    ports: [80]
+    port_bindings: '{80:8081}'
+    dockerfile_path: '/etc/pydocker/configs/app1/'
+    dockerfile: 'Dockerfile'
+    tag: 'app1:v1.0'
+  - name: 'app2'
+    network: 'netapps'
+    ip: '172.254.0.2'
+    aliases: ["app2", "app2.mylab.com.br"]
+    image: 'app2:v1.0'
+    ports: [80]
+    port_bindings: '{80:8082}'
+    dockerfile_path: '/etc/pydocker/configs/'
+    dockerfile: 'Dockerfile'
+    tag: 'app2:v1.0'
