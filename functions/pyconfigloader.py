@@ -1,10 +1,10 @@
 from yaml import load
-from os import path, sys
+from os import path, sys, getcwd
 
 class ConfigLoader():
 
     def __init__(self):
-        self.__config_path = "/etc/pydocker/configs/configs.yaml"
+        self.__config_path = getcwd() + "/configs/configs.yaml"
         self.__datas = self.__load_yaml_file()
 
     def __load_yaml_file(self):
@@ -14,10 +14,13 @@ class ConfigLoader():
                     datas = load(obj_file)
             except FileNotFoundError as err:
                 print("[ ConfigLoader __load_yaml_file ] Failed to load file [", self.__config_path, "] : ERROR :", err)
-                exit()
+                sys.exit(1)
             except PermissionError as err:
                 print("[ ConfigLoader __load_yaml_file ] Failed to load file [", self.__config_path, "] : ERROR :", err)
-                exit()
+                sys.exit(1)
+            except AttributeError as err:
+                print("[ ConfigLoader __load_yaml_file ] Failed to load file [", self.__config_path, "] : ERROR :", err)
+                sys.exit(1)
             else:
                 return datas
         else:

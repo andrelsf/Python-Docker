@@ -1,8 +1,8 @@
 default:
   domain: '.mylab.com.br'
-  py_docker_dir: '/etc/pydocker/'
-  py_docker_config: '/etc/pydocker/configs/'
-  py_docker_functions: '/etc/pydocker/functions/'
+  py_docker_configs: '/configs/'
+  py_docker_functions: '/functions/'
+  py_docker_templates: '/templates/'
 
 networks:
   - name: 'netapps'
@@ -18,10 +18,10 @@ apps:
     image: 'proxy_apps:v1.0'
     ports: [80]
     port_bindings: '{80:80}'
-    dockerfile_path: '/etc/pydocker/configs/proxy_nginx/'
+    dockerfile_path: '/configs/proxy_nginx/'
     dockerfile: 'Dockerfile'
     tag: 'proxy_apps:v1.0'
-    template: "server {\n\tlisten  80;\n\tserver_name %s%s;\n\tlocation / {\n\t\tproxy_pass  http://%s%s/;\n\t}\n}\n"
+    template: true
   - name: 'app1'
     network: 'netapps'
     ip: '172.254.0.1'
@@ -29,7 +29,7 @@ apps:
     image: 'app1:v1.0'
     ports: [80]
     port_bindings: '{80:8081}'
-    dockerfile_path: '/etc/pydocker/configs/app1/'
+    dockerfile_path: '/configs/app1/'
     dockerfile: 'Dockerfile'
     tag: 'app1:v1.0'
   - name: 'app2'
@@ -39,6 +39,6 @@ apps:
     image: 'app2:v1.0'
     ports: [80]
     port_bindings: '{80:8082}'
-    dockerfile_path: '/etc/pydocker/configs/'
+    dockerfile_path: '/configs/app2/'
     dockerfile: 'Dockerfile'
     tag: 'app2:v1.0'

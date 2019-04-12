@@ -1,0 +1,7 @@
+server {
+    listen  80;
+    server_name app2.mylab.com.br;
+    location / {
+        proxy_pass  http://app2.mylab.com.br/;
+    }
+}

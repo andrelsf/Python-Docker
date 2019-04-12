@@ -8,8 +8,6 @@ class DockerNetwork():
         self.__docker_client = docker.from_env()
         self.__config_loader = ConfigLoader()
         self.__datas = self.__config_loader.get_datas_network()
-        print(self.__datas)
-        exit()
         try:
             self.__network_name = self.__datas['name']
             self.__network_subnet = self.__datas['subnet']
@@ -17,7 +15,7 @@ class DockerNetwork():
             self.__network_driver = self.__datas['driver']
         except TypeError as err:
             print("[ DockerNetwork __init__ ] ERROR:", err)
-            exit()
+            sys.exit(1)
 
     def __create_network_apps(self):
         print("\n[DOCKER] Create Network for APPS: (", self.__network_name.upper(), ") ...")
@@ -41,4 +39,4 @@ class DockerNetwork():
                 print("\t[ OK ] Network exists.")
         except docker.errors.APIError as err:
             print("\t[ DockerNetwork __create_network_apps ] ERROR:", err)
-        
+            sys.exit(1)

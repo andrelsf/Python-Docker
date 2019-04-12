@@ -1,23 +1,25 @@
 import docker 
 from pyconfigloader import ConfigLoader
-from os import sys, path
+from os import sys, path, getcwd
+from jinja2 import Template
 
 class Apps():
 
     def __init__(self):
-        self.__list_apps = list()
         self.__docker_client = docker.from_env()
+        self.__list_apps = list()
         self.__config_loader = ConfigLoader()
         self.__datas_default = self.__config_loader.get_datas_default()
         self.__apps_list = self.__config_loader.get_datas_apps()
         try:
+            self.__py_docker_dir = getcwd()
             self.__domain = self.__datas_default['domain']
-            self.__py_docker_dir = self.__datas_default['py_docker_dir']
-            self.__py_docker_configs = self.__datas_default['py_docker_config']
-            self.__py_docker_functions = self.__datas_default['py_docker_functions']
-            for app in self.__list_apps:
+            self.__py_docker_configs = self.__py_docker_dir + self.__datas_default['py_docker_configs']
+            self.__py_docker_functions = self.__py_docker_dir + self.__datas_default['py_docker_functions']
+            self.__py_docker_templates_dir = self.__py_docker_dir + self.__datas_default['py_docker_templates']
+            for app in self.__apps_list:
                 self.__name = app['name']
-                if self.__name != "proxy_nginx":
+                if (self.__name != "proxy_nginx"):
                     self.__list_apps.append(self.__name)
             for app in self.__apps_list:
                 self.__name             = app['name']
@@ -26,26 +28,37 @@ class Apps():
                 self.__aliases          = app['aliases']
                 self.__image            = app['image']
                 self.__ports            = app['ports']
-                self.__port_bindings    = dict(app['port_bindings'])
-                self.__dockerfile_path  = app['dockerfile_path']
+                self.__port_bindings    = app['port_bindings']
+                self.__dockerfile_path  = self.__py_docker_dir + app['dockerfile_path']
                 self.__dockerfile       = app['dockerfile']
                 self.__tag              = app['tag']
+                
+                """
+                    Create template to vhosts.
+                """
                 try:
-                    if app['template']:
-                        self.__template = app['template']
+                    if (app['template']):
                         if (self.__template_create_vhost(
-                                self.__template, 
+                                self.__py_docker_templates_dir, 
                                 self.__dockerfile_path
                             )):
                             print("\t[ OK ] VHost created.")
                 except TypeError as err:
                     print("\t[ Apps __init__ ] ERROR:", err)
+                sys.exit(1)
+                """
+                    Function to create imagens Docker.
+                """
                 self.__create_images_docker(
                     app_name=self.__name,
                     dockerfile_path=self.__dockerfile_path,
                     dockerfile=self.__dockerfile,
                     tag=self.__tag
                 )
+
+                """
+                    Docker RUN.
+                """
                 self.__docker_run( 
                     app_name=self.__name,
                     network=self.__network,
@@ -57,8 +70,10 @@ class Apps():
                 )
         except TypeError as err:
             print("[ Apps __init__ ] ERROR :", err)
-            exit()
-
+            sys.exit(1)
+        except ValueError as err:
+            print("[ Apps __init__ ] ERROR :", err)
+            sys.exit(1)
 
     def __create_images_docker(self, app_name, dockerfile_path, dockerfile, tag):
         print("\n[DOCKER] Create image APP: (", app_name.upper(), ") ...")
@@ -77,10 +92,10 @@ class Apps():
                 print("\t[ OK ] Image", app_name.upper(), "exists.")
         except docker.errors.BuildError as err:
             print("[ Apps __create_images_docker ] : ERROR :", err)
-            exit()
+            sys.exit(1)
         except docker.errors.APIError as err:
             print("[ Apps __create_images_docker ] : ERROR :", err)
-            exit()
+            sys.exit(1)
 
 
     def __docker_run(self, app_name, network, ip, aliases, image, ports, port_bindings):
@@ -113,20 +128,24 @@ class Apps():
         except docker.errors.ImageLoadError as err:
             print("\t[ Apps __docker_run ] ERROR:", err)
 
-
-    def __template_create_vhost(self, template, dockerfile_path):
+    """
+        self.__py_docker_templates_dir, 
+        self.__dockerfile_path
+    """
+    def __template_create_vhost(self, template_dir, dockerfile_path):
+        vhost_template = self.__py_docker_templates_dir + 'vhost'
         for app in self.__list_apps:
-            dir_vhost = self.__py_docker_configs + "vhost_" + app
-            if (path.exists(dir_vhost)):
-                with open(dir_vhost, 'w') as content_vhost:
-                    content_vhost.write(
-                        template % (
-                            app, self.__domain, 
-                            app, self.__domain
-                        )
-                    )
-            else:
-                print("[ Apps __template_create_vhost ] ERROR: File not found.")
-                exit()
-        return True
-        
+            vhost_file = dockerfile_path + "vhost_" + app
+            if (path.exists(vhost_template)):
+                with open(vhost_template, 'r') as obj_vhost:
+                    vhost_content = obj_vhost.readlines()
+                content = ''
+                for line in vhost_content:
+                    content = content + line.strip("")
+                if (content):
+                    template = Template(content)
+                    content = template.render(vhost_name=app + self.__domain)
+                    with open(vhost_file, 'w') as obj_vhost:
+                        obj_vhost.write(content)
+
+app = Apps()
