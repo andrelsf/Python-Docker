@@ -147,5 +147,3 @@ class Apps():
                     content = template.render(vhost_name=app + self.__domain)
                     with open(vhost_file, 'w') as obj_vhost:
                         obj_vhost.write(content)
-
-app = Apps()
