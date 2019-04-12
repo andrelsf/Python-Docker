@@ -2,6 +2,7 @@ import docker
 from pyconfigloader import ConfigLoader
 from os import sys, path, getcwd
 from jinja2 import Template
+from json import loads, dump
 
 class Apps():
 
@@ -45,7 +46,7 @@ class Apps():
                             print("\t[ OK ] VHost created.")
                 except TypeError as err:
                     print("\t[ Apps __init__ ] ERROR:", err)
-                sys.exit(1)
+
                 """
                     Function to create imagens Docker.
                 """
@@ -55,7 +56,7 @@ class Apps():
                     dockerfile=self.__dockerfile,
                     tag=self.__tag
                 )
-
+                sys.exit()
                 """
                     Docker RUN.
                 """
@@ -76,20 +77,24 @@ class Apps():
             sys.exit(1)
 
     def __create_images_docker(self, app_name, dockerfile_path, dockerfile, tag):
-        print("\n[DOCKER] Create image APP: (", app_name.upper(), ") ...")
+        print("\n[DOCKER] Create image APP: ({}) ...".format(app_name.upper()))
         try:
-            print("\tCreating of image ", app_name.upper(), ": Started...")
+            print("\tCreating of image {}: Started...".format(app_name.upper()))
             app_tag = self.__docker_client.api.images(name=tag)
             if not app_tag:
-                app_name = [ line for line in self.__docker_client.api.build(
+                app_name = [ line.decode('utf-8').split("\n")[0] for line in self.__docker_client.api.build(
                     path=dockerfile_path,
                     tag=tag,
                     dockerfile=dockerfile,
-                    nocache=True
+                    nocache=False
                     )]
-                print("\t[ OK ] Image", app_name.upper(), "created successfully.")
+                for result in app_name:
+                    res = loads(result)
+                    if res.get('stream') != None:
+                        print("\t", res.get('stream'), end="")
+                print("\t[ OK ] Image created successfully.")
             else:
-                print("\t[ OK ] Image", app_name.upper(), "exists.")
+                print("\t[ OK ] Image {} exists.".format(app_name.upper()))
         except docker.errors.BuildError as err:
             print("[ Apps __create_images_docker ] : ERROR :", err)
             sys.exit(1)
@@ -147,3 +152,5 @@ class Apps():
                     content = template.render(vhost_name=app + self.__domain)
                     with open(vhost_file, 'w') as obj_vhost:
                         obj_vhost.write(content)
+
+app = Apps()
