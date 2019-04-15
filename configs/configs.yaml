@@ -12,6 +12,7 @@ networks:
 
 apps:
   - name: 'proxy_nginx'
+    base_image: 'ubuntu:latest'
     network: 'netapps'
     ip: '172.254.0.253'
     aliases: ["proxy-apps"]
@@ -23,6 +24,7 @@ apps:
     tag: 'proxy_apps:v1.0'
     template: true
   - name: 'app1'
+    base_image: 'centos:latest'
     network: 'netapps'
     ip: '172.254.0.1'
     aliases: ["app1", "app1.mylab.com.br"]
@@ -33,6 +35,7 @@ apps:
     dockerfile: 'Dockerfile'
     tag: 'app1:v1.0'
   - name: 'app2'
+    base_image: 'centos:latest'
     network: 'netapps'
     ip: '172.254.0.2'
     aliases: ["app2", "app2.mylab.com.br"]

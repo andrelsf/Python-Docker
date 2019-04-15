@@ -24,6 +24,7 @@ class Apps():
                     self.__list_apps.append(self.__name)
             for app in self.__apps_list:
                 self.__name             = app['name']
+                self.__base_image       = app['base_image']
                 self.__network          = app['network']
                 self.__ip               = app['ip']
                 self.__aliases          = app['aliases']
@@ -54,9 +55,10 @@ class Apps():
                     app_name=self.__name,
                     dockerfile_path=self.__dockerfile_path,
                     dockerfile=self.__dockerfile,
-                    tag=self.__tag
+                    tag=self.__tag,
+                    base_image=self.__base_image
                 )
-                sys.exit()
+                sys.exit(1)
                 """
                     Docker RUN.
                 """
@@ -76,37 +78,46 @@ class Apps():
             print("[ Apps __init__ ] ERROR :", err)
             sys.exit(1)
 
-    def __create_images_docker(self, app_name, dockerfile_path, dockerfile, tag):
+    def __create_images_docker(self, app_name, dockerfile_path, dockerfile, tag, base_image):
         print("\n[DOCKER] Create image APP: ({}) ...".format(app_name.upper()))
         try:
             print("\tCreating of image {}: Started...".format(app_name.upper()))
             app_tag = self.__docker_client.api.images(name=tag)
             if not app_tag:
-                app_name = [ line.decode('utf-8').split("\n")[0] for line in self.__docker_client.api.build(
+                build_app_name = [ line.decode('utf-8').split("\n")[0] for line in self.__docker_client.api.build(
                     path=dockerfile_path,
                     tag=tag,
                     dockerfile=dockerfile,
                     nocache=False
                     )]
-                for result in app_name:
+                for result in build_app_name:
                     res = loads(result)
-                    if res.get('stream') != None:
+                    if res.get('stream'):
                         print("\t", res.get('stream'), end="")
+                    elif (res.get('errorDetail')):
+                        print("\t", res.get('errorDetail').get('message'), end="")
+                        result = self.__docker_client.api.remove_image(
+                                image=base_image, 
+                                force=True, 
+                                noprune=False
+                            )
+                        print("\n\tRemoved image [" + result[1].get('Untagged') + "].")
+                        sys.exit(1)
                 print("\t[ OK ] Image created successfully.")
             else:
                 print("\t[ OK ] Image {} exists.".format(app_name.upper()))
         except docker.errors.BuildError as err:
-            print("[ Apps __create_images_docker ] : ERROR :", err)
+            print("[ Apps __create_images_docker ] : ", err)
             sys.exit(1)
         except docker.errors.APIError as err:
-            print("[ Apps __create_images_docker ] : ERROR :", err)
+            print("[ Apps __create_images_docker ] : ", err)
             sys.exit(1)
 
 
     def __docker_run(self, app_name, network, ip, aliases, image, ports, port_bindings):
         print("\n[DOCKER] Run images APP: (", app_name.upper(), ")...")
         try:
-            print("\tDocker run", app_name.upper(), ": Started...")
+            print("\tDocker RUN", app_name.upper(), ": Started...")
             is_running = self.__docker_client.api.containers(
                 filters={'name': app_name, 'status': 'running'}
             )
@@ -127,11 +138,11 @@ class Apps():
                 self.__docker_client.api.start(app_name)
                 print("\n\t[ OK ] APP Started.")
         except docker.errors.ContainerError as err:
-            print("\t[ Apps __docker_run ] ERROR:", err)
+            print("\t[ Apps __docker_run ] : ", err)
         except docker.errors.ImageNotFound as err:
-            print("\t[ Apps __docker_run ] ERROR:", err)
+            print("\t[ Apps __docker_run ] : ", err)
         except docker.errors.ImageLoadError as err:
-            print("\t[ Apps __docker_run ] ERROR:", err)
+            print("\t[ Apps __docker_run ] : ", err)
 
     """
         self.__py_docker_templates_dir, 
