@@ -11,18 +11,20 @@ networks:
     driver: 'bridge'
 
 apps:
-  - name: 'proxy_nginx'
-    base_image: 'ubuntu:latest'
+  - name: 'HAProxy'
+    base_image: 'haproxy:1.9'
     network: 'netapps'
     ip: '172.254.0.253'
-    aliases: ["proxy-apps"]
-    image: 'proxy_apps:v1.0'
+    aliases: ["haproxy-apps"]
+    image: 'haproxy_apps:v1.0'
     ports: [80]
-    port_bindings: '{80:80}'
-    dockerfile_path: '/configs/proxy_nginx/'
+    port_bindings: '{"80":80}'
+    dockerfile_path: '/configs/haproxy_nginx/'
     dockerfile: 'Dockerfile'
-    tag: 'proxy_apps:v1.0'
+    tag: 'haproxy_apps:v1.0'
     template: true
+    template_file: 'Dockerfile.haproxy'
+    backend: false
   - name: 'app1'
     base_image: 'centos:latest'
     network: 'netapps'
@@ -30,10 +32,13 @@ apps:
     aliases: ["app1", "app1.mylab.com.br"]
     image: 'app1:v1.0'
     ports: [80]
-    port_bindings: '{80:8081}'
+    port_bindings: '{"80":8081}'
     dockerfile_path: '/configs/app1/'
     dockerfile: 'Dockerfile'
     tag: 'app1:v1.0'
+    template: true
+    template_file: 'Dockerfile.apps'
+    backend: true
   - name: 'app2'
     base_image: 'centos:latest'
     network: 'netapps'
@@ -41,7 +46,10 @@ apps:
     aliases: ["app2", "app2.mylab.com.br"]
     image: 'app2:v1.0'
     ports: [80]
-    port_bindings: '{80:8082}'
+    port_bindings: '{"80":8082}'
     dockerfile_path: '/configs/app2/'
     dockerfile: 'Dockerfile'
     tag: 'app2:v1.0'
+    template: true
+    template_file: 'Dockerfile.apps'
+    backend: true

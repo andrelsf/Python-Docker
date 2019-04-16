@@ -1,0 +1,4 @@
+
+# Gerenciado via Python
+backend {{ app }}
+        server {{ app }} {{ ip_app }}:80 check inter 20s maxconn 500

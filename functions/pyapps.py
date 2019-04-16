@@ -1,6 +1,7 @@
 import docker 
 from pyconfigloader import ConfigLoader
-from os import sys, path, getcwd
+from time import sleep
+from os import sys, path, getcwd, remove
 from jinja2 import Template
 from json import loads, dump
 
@@ -18,10 +19,10 @@ class Apps():
             self.__py_docker_configs = self.__py_docker_dir + self.__datas_default['py_docker_configs']
             self.__py_docker_functions = self.__py_docker_dir + self.__datas_default['py_docker_functions']
             self.__py_docker_templates_dir = self.__py_docker_dir + self.__datas_default['py_docker_templates']
-            for app in self.__apps_list:
-                self.__name = app['name']
-                if (self.__name != "proxy_nginx"):
-                    self.__list_apps.append(self.__name)
+            for app in self.__apps_list: 
+                self.__backend = app['backend']
+                if (self.__backend):
+                    self.__list_apps.append(app)
             for app in self.__apps_list:
                 self.__name             = app['name']
                 self.__base_image       = app['base_image']
@@ -30,24 +31,39 @@ class Apps():
                 self.__aliases          = app['aliases']
                 self.__image            = app['image']
                 self.__ports            = app['ports']
-                self.__port_bindings    = app['port_bindings']
+                self.__port_bindings    = loads(app['port_bindings'])
                 self.__dockerfile_path  = self.__py_docker_dir + app['dockerfile_path']
                 self.__dockerfile       = app['dockerfile']
                 self.__tag              = app['tag']
-                
+                self.__template         = app['template']
+                self.__template_file    = app['template_file']
+                self.__backend          = app['backend']
+
                 """
-                    Create template to vhosts.
+                    Create template.
                 """
                 try:
-                    if (app['template']):
-                        if (self.__template_create_vhost(
-                                self.__py_docker_templates_dir, 
+                    if (self.__template):
+                        if (self.__create_dockerfile(
+                                    self.__name,
+                                    self.__template_file,
+                                    self.__base_image,
+                                    self.__py_docker_templates_dir, 
+                                    self.__dockerfile_path
+                                )):
+                            print("\t[ OK ] Dockerfile created.")
+                        if (not self.__backend):
+                            self.__create_haproxy_cfg(
+                                self.__name,
+                                self.__ip,
+                                self.__network,
+                                self.__py_docker_templates_dir,
                                 self.__dockerfile_path
-                            )):
-                            print("\t[ OK ] VHost created.")
+                            )
+                            print("\t[ OK ] HAProxy file created.")
                 except TypeError as err:
                     print("\t[ Apps __init__ ] ERROR:", err)
-
+            
                 """
                     Function to create imagens Docker.
                 """
@@ -58,7 +74,7 @@ class Apps():
                     tag=self.__tag,
                     base_image=self.__base_image
                 )
-                sys.exit(1)
+
                 """
                     Docker RUN.
                 """
@@ -93,6 +109,7 @@ class Apps():
                 for result in build_app_name:
                     res = loads(result)
                     if res.get('stream'):
+                        pass
                         print("\t", res.get('stream'), end="")
                     elif (res.get('errorDetail')):
                         print("\t", res.get('errorDetail').get('message'), end="")
@@ -114,14 +131,22 @@ class Apps():
             sys.exit(1)
 
 
+    def __is_running(self, app_name):
+        is_running = self.__docker_client.api.containers(
+                filters={'name': app_name, 'status': 'running'}
+            )
+        if is_running:
+            return True
+        else:
+            return False
+
+
     def __docker_run(self, app_name, network, ip, aliases, image, ports, port_bindings):
         print("\n[DOCKER] Run images APP: (", app_name.upper(), ")...")
         try:
             print("\tDocker RUN", app_name.upper(), ": Started...")
-            is_running = self.__docker_client.api.containers(
-                filters={'name': app_name, 'status': 'running'}
-            )
-            if not is_running:
+            is_running = self.__is_running(app_name)
+            if (not is_running):
                 network_config = self.__docker_client.api.create_networking_config({
                     network: self.__docker_client.api.create_endpoint_config(
                         ipv4_address=ip,
@@ -136,32 +161,75 @@ class Apps():
                 )
                 print("\tID:", app_name['Id'])
                 self.__docker_client.api.start(app_name)
-                print("\n\t[ OK ] APP Started.")
+                sleep(5)
+                is_running = self.__is_running(app_name)
+                if (not is_running):
+                    print("\t[ ERROR ] App terminated abruptly")
+                    sys.exit(1)
+                print("\t[ OK ] APP Started.")
+            else:
+                print("\t[ Warnning ] APP is Running.")
         except docker.errors.ContainerError as err:
             print("\t[ Apps __docker_run ] : ", err)
+            sys.exit(1)
         except docker.errors.ImageNotFound as err:
             print("\t[ Apps __docker_run ] : ", err)
+            sys.exit(1)
         except docker.errors.ImageLoadError as err:
             print("\t[ Apps __docker_run ] : ", err)
+            sys.exit(1)
+        except docker.errors.APIError as err:
+            print("\t[ Apps __docker_run ] : ", err)
+            sys.exit(1)
 
     """
         self.__py_docker_templates_dir, 
         self.__dockerfile_path
     """
-    def __template_create_vhost(self, template_dir, dockerfile_path):
-        vhost_template = self.__py_docker_templates_dir + 'vhost'
-        for app in self.__list_apps:
-            vhost_file = dockerfile_path + "vhost_" + app
-            if (path.exists(vhost_template)):
-                with open(vhost_template, 'r') as obj_vhost:
-                    vhost_content = obj_vhost.readlines()
-                content = ''
-                for line in vhost_content:
+    def __create_dockerfile(self, app_name, template_file, base_image, template_dir, dockerfile_path):
+        print("[ Dockerfile ] Create Dockerfile ", app_name)
+        dockerfile_template = template_dir + template_file
+        # for app in self.__list_apps:
+        dockerfile_file = dockerfile_path + "Dockerfile"
+        if (path.exists(dockerfile_template)):
+            with open(dockerfile_template, 'r') as obj_vhost:
+                dockerfile_content = obj_vhost.readlines()
+            content = ''
+            for line in dockerfile_content:
+                content = content + line.strip("")
+            if (content):
+                template = Template(content)
+                content = template.render(base_image=base_image, app_name=app_name)
+                with open(dockerfile_file, 'w') as obj_vhost:
+                    obj_vhost.write(content)
+                return True
+
+
+    def __create_haproxy_cfg(self, app_name, ip_address, network_name, template_dir, haproxy_path):
+        haproxy_template = template_dir + "haproxy.cfg"
+        backends_template = template_dir + "backends"
+        haproxy_file = haproxy_path + "haproxy.cfg"
+        if (path.exists(haproxy_template)):
+            with open(haproxy_template, 'r') as template:
+                haproxy_content = template.readlines()
+            with open(backends_template, 'r') as obj_backends:
+                content_backends = obj_backends.readlines()
+            content = '\n'
+            for line in haproxy_content:
+                content = content + line.strip("")
+            if (content):
+                template = Template(content)
+                content = template.render(APP=network_name, IP=ip_address)
+                with open(haproxy_file, "w") as obj_haproxy:
+                    obj_haproxy.write(content)
+                content = '\n'
+                for line in content_backends:
                     content = content + line.strip("")
-                if (content):
-                    template = Template(content)
-                    content = template.render(vhost_name=app + self.__domain)
-                    with open(vhost_file, 'w') as obj_vhost:
-                        obj_vhost.write(content)
+                template = Template(content)
+                for app in self.__list_apps:
+                    content = template.render(app=app['name'], ip_app=app['ip'])
+                    with open(haproxy_file, 'a') as obj_haproxy:
+                        obj_haproxy.write(content)
+
 
 app = Apps()

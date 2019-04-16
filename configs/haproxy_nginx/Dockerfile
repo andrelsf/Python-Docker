@@ -1,7 +1,7 @@
-FROM	{{ base_image }}
+FROM	haproxy:1.9
 
-LABEL	{{ app_name }}.vendor="Andre L S Ferreira" \
-		{{ app_name }}.description="MeetUP DevOPs 2."
+LABEL	HAProxy.vendor="Andre L S Ferreira" \
+		HAProxy.description="MeetUP DevOPs 2."
 
 ADD ./haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
 

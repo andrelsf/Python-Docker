@@ -1,7 +1,6 @@
 FROM	{{ base_image }}
 
-LABEL	{{ app_name }}.version={{ app_version }} \
-		{{ app_name }}.vendor="Andre L S Ferreira" \
+LABEL	{{ app_name }}.vendor="Andre L S Ferreira" \
 		{{ app_name }}.description="MeetUP DevOPs 2."
 
 RUN		yum makecache fast \
