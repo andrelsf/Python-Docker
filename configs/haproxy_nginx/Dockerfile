@@ -1,11 +1,12 @@
-FROM	haproxy:1.9
+FROM	haproxy:1.7
 
 LABEL	HAProxy.vendor="Andre L S Ferreira" \
 		HAProxy.description="MeetUP DevOPs 2."
 
+RUN apt update\
+	&& apt install haproxy vim net-tools iputils-ping -y \
+	&& echo "ENABLED=1" > /etc/default/haproxy
+
 ADD ./haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
 
-RUN	useradd haproxy \
-	&& chown haproxy. /usr/local/etc/haproxy/ -R
-
-CMD ["/usr/local/sbin/haproxy", "-f", "/usr/local/etc/haproxy/haproxy.cfg"]
+#ENTRYPOINT ["/etc/init.d/haproxy", "start"]

@@ -1,4 +1,5 @@
-import docker 
+import docker
+from docker.types import LogConfig
 from pyconfigloader import ConfigLoader
 from time import sleep
 from os import sys, path, getcwd, remove
@@ -9,13 +10,19 @@ class Apps():
 
     def __init__(self):
         self.__docker_client = docker.from_env()
+        self.__log_config = LogConfig(
+                type=LogConfig.types.JSON, config={'max-size': '1g', 'labels': 'status,apps'}
+            )
+        self.__create_config = self.__docker_client.api.create_host_config(
+                log_config=self.__log_config
+            )
         self.__list_apps = list()
         self.__config_loader = ConfigLoader()
         self.__datas_default = self.__config_loader.get_datas_default()
         self.__apps_list = self.__config_loader.get_datas_apps()
         try:
             self.__py_docker_dir = getcwd()
-            self.__domain = self.__datas_default['domain']
+            self.__domains = self.__datas_default['domains']
             self.__py_docker_configs = self.__py_docker_dir + self.__datas_default['py_docker_configs']
             self.__py_docker_functions = self.__py_docker_dir + self.__datas_default['py_docker_functions']
             self.__py_docker_templates_dir = self.__py_docker_dir + self.__datas_default['py_docker_templates']
@@ -58,7 +65,8 @@ class Apps():
                                 self.__ip,
                                 self.__network,
                                 self.__py_docker_templates_dir,
-                                self.__dockerfile_path
+                                self.__dockerfile_path,
+                                self.__domains
                             )
                             print("\t[ OK ] HAProxy file created.")
                 except TypeError as err:
@@ -87,6 +95,7 @@ class Apps():
                     ports=self.__ports,
                     port_bindings=self.__port_bindings
                 )
+                # sys.exit(1)
         except TypeError as err:
             print("[ Apps __init__ ] ERROR :", err)
             sys.exit(1)
@@ -109,7 +118,7 @@ class Apps():
                 for result in build_app_name:
                     res = loads(result)
                     if res.get('stream'):
-                        pass
+                        #pass
                         print("\t", res.get('stream'), end="")
                     elif (res.get('errorDetail')):
                         print("\t", res.get('errorDetail').get('message'), end="")
@@ -159,13 +168,13 @@ class Apps():
                         port_bindings=port_bindings, auto_remove=True
                     )
                 )
-                print("\tID:", app_name['Id'])
+                #print("\tID:", app_name['Id'])
                 self.__docker_client.api.start(app_name)
-                sleep(5)
-                is_running = self.__is_running(app_name)
-                if (not is_running):
-                    print("\t[ ERROR ] App terminated abruptly")
-                    sys.exit(1)
+                # sleep(5)
+                # is_running = self.__is_running(app_name)
+                # if (not is_running):
+                #     print("\t[ ERROR ] App terminated abruptly")
+                #     sys.exit(1)
                 print("\t[ OK ] APP Started.")
             else:
                 print("\t[ Warnning ] APP is Running.")
@@ -205,7 +214,9 @@ class Apps():
                 return True
 
 
-    def __create_haproxy_cfg(self, app_name, ip_address, network_name, template_dir, haproxy_path):
+    def __create_haproxy_cfg(
+            self, app_name, ip_address, network_name, template_dir, haproxy_path, domains
+        ):
         haproxy_template = template_dir + "haproxy.cfg"
         backends_template = template_dir + "backends"
         haproxy_file = haproxy_path + "haproxy.cfg"
@@ -218,8 +229,16 @@ class Apps():
             for line in haproxy_content:
                 content = content + line.strip("")
             if (content):
+                apps = []
+                for app in self.__list_apps:
+                    apps.append(app['name'])
                 template = Template(content)
-                content = template.render(APP=network_name, IP=ip_address)
+                content = template.render(
+                        APP=network_name, 
+                        IP=ip_address,
+                        domains=domains,
+                        apps=apps
+                    )
                 with open(haproxy_file, "w") as obj_haproxy:
                     obj_haproxy.write(content)
                 content = '\n'
@@ -227,7 +246,9 @@ class Apps():
                     content = content + line.strip("")
                 template = Template(content)
                 for app in self.__list_apps:
-                    content = template.render(app=app['name'], ip_app=app['ip'])
+                    content = template.render(
+                            app=app['name'], ip_app=app['ip']
+                        )
                     with open(haproxy_file, 'a') as obj_haproxy:
                         obj_haproxy.write(content)
 
