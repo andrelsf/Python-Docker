@@ -25,6 +25,7 @@ apps:
     template: true
     template_file: 'Dockerfile.haproxy'
     backend: false
+    volumes: ['haproxy;/usr/local/etc/haproxy:ro']
   - name: 'app1'
     base_image: 'centos:latest'
     network: 'netapps'
@@ -39,6 +40,7 @@ apps:
     template: true
     template_file: 'Dockerfile.apps'
     backend: true
+    volumes: ['html;/var/www/html:ro']
   - name: 'app2'
     base_image: 'centos:latest'
     network: 'netapps'
@@ -53,6 +55,7 @@ apps:
     template: true
     template_file: 'Dockerfile.apps'
     backend: true
+    volumes: ['html;/var/www/html:ro']
   - name: 'app3'
     base_image: 'centos:latest'
     network: 'netapps'
@@ -67,3 +70,4 @@ apps:
     template: true
     template_file: 'Dockerfile.apps'
     backend: true
+    volumes: ['html;/var/www/html:ro']

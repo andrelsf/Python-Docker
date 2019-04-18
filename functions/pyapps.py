@@ -2,7 +2,7 @@ import docker
 from docker.types import LogConfig
 from pyconfigloader import ConfigLoader
 from time import sleep
-from os import sys, path, getcwd, remove
+from os import sys, path, getcwd, remove, mkdir
 from jinja2 import Template
 from json import loads, dump
 
@@ -31,6 +31,8 @@ class Apps():
                 if (self.__backend):
                     self.__list_apps.append(app)
             for app in self.__apps_list:
+                self.__volumes_conteiner = []
+                self.__volumes_binds     = []     
                 self.__name             = app['name']
                 self.__base_image       = app['base_image']
                 self.__network          = app['network']
@@ -45,7 +47,19 @@ class Apps():
                 self.__template         = app['template']
                 self.__template_file    = app['template_file']
                 self.__backend          = app['backend']
-
+                self.__volumes          = app['volumes']
+                for volume in self.__volumes:
+                    volumes = volume.split(";")
+                    volume_host = self.__dockerfile_path + volumes[0]
+                    if (not path.exists(volume_host)):
+                        mkdir(volume_host)
+                    volume_host = volume_host + ":" + volumes[1]
+                    self.__volumes_binds.append(volume_host)
+                    if ":" in volumes[1]:
+                        self.__volumes_conteiner.append(volumes[1].split(":")[0])
+                    else:
+                        self.__volumes_conteiner.append(volumes[1])
+                 
                 """
                     Create template.
                 """
@@ -93,7 +107,9 @@ class Apps():
                     aliases=self.__aliases,
                     image=self.__image,
                     ports=self.__ports,
-                    port_bindings=self.__port_bindings
+                    port_bindings=self.__port_bindings,
+                    volumes_conteiner=self.__volumes_conteiner,
+                    volumes_bind=self.__volumes_binds
                 )
                 # sys.exit(1)
         except TypeError as err:
@@ -150,7 +166,9 @@ class Apps():
             return False
 
 
-    def __docker_run(self, app_name, network, ip, aliases, image, ports, port_bindings):
+    def __docker_run(
+                self, app_name, network, ip, aliases, image, ports, port_bindings, volumes_conteiner, volumes_bind
+            ):
         print("\n[DOCKER] Run images APP: (", app_name.upper(), ")...")
         try:
             print("\tDocker RUN", app_name.upper(), ": Started...")
@@ -164,8 +182,10 @@ class Apps():
                 })
                 app_name = self.__docker_client.api.create_container(
                     image=image, name=app_name, networking_config=network_config,
-                    ports=ports, host_config=self.__docker_client.api.create_host_config(
-                        port_bindings=port_bindings, auto_remove=True
+                    ports=ports, volumes=volumes_conteiner, 
+                    host_config=self.__docker_client.api.create_host_config(
+                        port_bindings=port_bindings, auto_remove=True, 
+                        binds=volumes_bind
                     )
                 )
                 #print("\tID:", app_name['Id'])
@@ -175,9 +195,9 @@ class Apps():
                 # if (not is_running):
                 #     print("\t[ ERROR ] App terminated abruptly")
                 #     sys.exit(1)
-                print("\t[ OK ] APP Started.")
+                print("\t[ OK ] APP Started.\n")
             else:
-                print("\t[ Warnning ] APP is Running.")
+                print("\t[ Warnning ] APP is Running.\n")
         except docker.errors.ContainerError as err:
             print("\t[ Apps __docker_run ] : ", err)
             sys.exit(1)
@@ -219,7 +239,7 @@ class Apps():
         ):
         haproxy_template = template_dir + "haproxy.cfg"
         backends_template = template_dir + "backends"
-        haproxy_file = haproxy_path + "haproxy.cfg"
+        haproxy_file = haproxy_path + "haproxy/haproxy.cfg"
         if (path.exists(haproxy_template)):
             with open(haproxy_template, 'r') as template:
                 haproxy_content = template.readlines()

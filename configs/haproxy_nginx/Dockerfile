@@ -6,7 +6,3 @@ LABEL	HAProxy.vendor="Andre L S Ferreira" \
 RUN apt update\
 	&& apt install haproxy vim net-tools iputils-ping -y \
 	&& echo "ENABLED=1" > /etc/default/haproxy
-
-ADD ./haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
-
-#ENTRYPOINT ["/etc/init.d/haproxy", "start"]
