@@ -48,6 +48,11 @@ class Apps():
                 self.__template_file    = app['template_file']
                 self.__backend          = app['backend']
                 self.__volumes          = app['volumes']
+                self.__active           = app['active']
+                if (not self.__active):
+                    stopped_conteiner = self.__stop_conteiner(self.__name)
+                    if (stopped_conteiner):
+                        continue
                 for volume in self.__volumes:
                     volumes = volume.split(";")
                     volume_host = self.__dockerfile_path + volumes[0]
@@ -154,6 +159,21 @@ class Apps():
         except docker.errors.APIError as err:
             print("[ Apps __create_images_docker ] : ", err)
             sys.exit(1)
+
+
+    def __stop_conteiner(self, app_name):
+        is_running = self.__is_running(self.__name)
+        if (is_running):
+            try:
+                print("\n[DOCKER] Run images APP: (", self.__name.upper(), ")...")
+                print("\tDocker STOP Conteiner ", self.__name.upper(), ": Started...")
+                self.__docker_client.api.stop(self.__name)    
+            except docker.errors.APIError as err:
+                print("\t[ ERROR ] ", err)
+                sys.exit(1)
+            else:
+                print("\tConteiner STOPED", self.__name.upper())
+                return True
 
 
     def __is_running(self, app_name):
