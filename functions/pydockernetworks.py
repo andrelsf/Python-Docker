@@ -1,6 +1,6 @@
 import docker
 from os import sys
-from pyconfigloader import ConfigLoader
+from functions.pyconfigloader import ConfigLoader
 
 class DockerNetwork():
 
@@ -9,10 +9,11 @@ class DockerNetwork():
         self.__config_loader = ConfigLoader()
         self.__datas = self.__config_loader.get_datas_network()
         try:
-            self.__network_name = self.__datas['name']
-            self.__network_subnet = self.__datas['subnet']
-            self.__network_gateway = self.__datas['gateway']
-            self.__network_driver = self.__datas['driver']
+            for networks in self.__datas:
+                self.__network_name = networks['name']
+                self.__network_subnet = networks['subnet']
+                self.__network_gateway = networks['gateway']
+                self.__network_driver = networks['driver']
         except TypeError as err:
             print("[ DockerNetwork __init__ ] ERROR:", err)
             sys.exit(1)

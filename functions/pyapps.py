@@ -1,6 +1,6 @@
 import docker
 from docker.types import LogConfig
-from pyconfigloader import ConfigLoader
+from functions.pyconfigloader import ConfigLoader
 from time import sleep
 from os import sys, path, getcwd, remove, mkdir
 from jinja2 import Template
@@ -291,6 +291,3 @@ class Apps():
                         )
                     with open(haproxy_file, 'a') as obj_haproxy:
                         obj_haproxy.write(content)
-
-
-app = Apps()
